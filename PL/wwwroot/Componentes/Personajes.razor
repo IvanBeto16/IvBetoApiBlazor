@@ -1,0 +1,165 @@
+﻿@page "/personajes"
+@using ML;
+
+<h3 class="text-center fw-bold">Personajes</h3>
+<br />
+<br />
+<span class="justify-content-center">Se muestran los personajes totales de la serie Rick y Morty, tanto su información básica como aquella que no sabías.</span>
+<br />
+@* Comparación para poder hacer la busqueda por nombre *@
+@if (toFind == "" || toFind == null)
+{
+<center>
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            <li class="page-item"><button class="page-link bg-danger text-white" @onclick="() => Operar('-')">Pagina Anterior</button></li>
+            <li class="page-item"><button class="page-link bg-success text-white" @onclick="() => Operar('+')">Pagina Siguiente</button></li>
+        </ul>
+        <span>Puedes buscar a los personajes de la página por su nombre, escribiendo el mismo en la caja de texto a continuación.</span>
+        <form class="d-flex justify-content-center" role="search">
+            <input type="search" placeholder="Buscar" class="form-control-sm" @bind="toFind" />
+            <button class="btn btn-primary" type="submit">Buscar</button>
+        </form>
+        <hr />
+    </nav>
+</center>
+
+    <div class="row row-cols-3">
+        @foreach (ML.Character character in raiz.results)
+        {
+            <div class="col-lg-4">
+                <div class="card" style="width: 18rem;">
+                    <img src="@character.image" class="card-img-top" alt="fotodelpersonaje">
+                    <div class="card-body bg-dark text-white">
+                        <p>@character.name</p>
+                        <hr />
+                        <span>Género: @character.gender</span><br />
+                        <span>Estado: @character.status</span><br />
+                        <span>Especie perteneciente: @character.species</span>
+                        <hr />
+                        <span>Creacion: @character.created</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <center>
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                <li class="page-item"><button class="page-link bg-danger text-white" @onclick="() => Operar('-')">Pagina Anterior</button></li>
+                <li class="page-item"><button class="page-link bg-success text-white" @onclick="() => Operar('+')">Pagina Siguiente</button></li>
+            </ul>
+            <span>Puedes buscar a los personajes de la página por su nombre, escribiendo el mismo en la caja de texto a continuación.</span>
+            <form class="d-flex justify-content-center" role="search">
+                <input type="search" placeholder="Buscar" class="form-control-sm" @bind="toFind" />
+                <button class="btn btn-primary" type="submit">Buscar</button>
+            </form>
+            <hr />
+        </nav>
+    </center>
+    <div class="row row-cols-3">
+        @foreach (ML.Character character in raiz.results)
+        {
+            @if (character.name.Contains(toFind))
+            {
+                <div class="col-lg-4">
+                    <div class="card" style="width: 18rem;">
+                        <img src="@character.image" class="card-img-top" alt="fotodelpersonaje">
+                        <div class="card-body bg-dark text-white">
+                            <p>@character.name</p>
+                            <hr />
+                            <span>Género: @character.gender</span><br />
+                            <span>Estado: @character.status</span><br />
+                            <span>Especie perteneciente: @character.species</span>
+                            <hr />
+                            <span>Creación: @character.created</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+}
+
+<br />
+<br />
+@code {
+    public static int NumeroPagina { get; set; }
+    public static string toFind { get; set; } = "";
+    public static ML.Root raiz { get; set; }  //Propiedad para asignar el objeto con todo el contenido a la vista
+
+    //Cuando se inicialice el componente, que estos valores se inicien de esta manera
+    protected override void OnInitialized()
+    {
+        NumeroPagina = 1;
+        toFind = null;
+        GetAll();
+    }
+
+    //Metodo para la paginacion, cambiar el valor del numero de la pagina
+    protected void Operar(char simbolo)
+    {
+        if (simbolo == '+')
+        {
+            NumeroPagina = NumeroPagina + 1;
+        }
+        if (simbolo == '-')
+        {
+            NumeroPagina = NumeroPagina - 1;
+            if (NumeroPagina <= 0)
+            {
+                NumeroPagina = 1;
+            }
+        }
+        GetAll();
+        StateHasChanged();
+    }
+
+    //GetAll estilo void para poder asignar un objeto nuevo con el contenido a la vista
+    public static void GetAll()
+    {
+        using (var client = new HttpClient())
+        {
+            ML.Root root = new ML.Root();
+            root.info = new ML.Info();
+            root.results = new List<Character>();
+            //root.Pages = numeroPagina == null ? 1 : numeroPagina;
+            client.BaseAddress = new Uri($"https://rickandmortyapi.com/api/character?page={NumeroPagina}");
+            var responseTask = client.GetAsync(client.BaseAddress);
+            responseTask.Wait();
+
+            var result = responseTask.Result;
+
+            if (result.IsSuccessStatusCode)
+            {
+                var readTask = result.Content.ReadAsAsync<ML.Root>();
+                readTask.Wait();
+
+                root.info = readTask.Result.info;
+
+                foreach (var item in readTask.Result.results)
+                {
+                    ML.Character personaje = new ML.Character();
+                    personaje.id = item.id;
+                    personaje.name = item.name;
+                    personaje.status = item.status;
+                    personaje.image = item.image;
+                    personaje.species = item.species;
+                    personaje.gender = item.gender;
+                    personaje.created = Convert.ToDateTime(item.created);
+
+                    root.results.Add(personaje);
+                }
+
+
+            }
+            raiz = root;
+            //return root;
+        }
+    }
+
+
+}
